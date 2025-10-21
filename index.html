@@ -485,6 +485,7 @@
                 } else {
                     data = historicalData;
                 }
+                data.items.sort((a, b) => a.PRODUCT_NAME.localeCompare(b.PRODUCT_NAME));
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
                 const margin = 14;
@@ -523,7 +524,7 @@
                     const cost = parseFloat(item.Cost) || 0;
                     const indents = parseFloat(item.Indents) || 0;
                     const total = indents * cost;
-                    return [index + 1, item.PRODUCT_NAME, indents, `Rs. ${cost.toFixed(2)}`, `Rs. ${total.toFixed(2)}`]
+                    return [index + 1, item.PRODUCT_NAME, indents, cost.toFixed(2), total.toFixed(2)]
                 });
 
                 doc.autoTable({
