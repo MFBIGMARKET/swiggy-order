@@ -311,6 +311,7 @@
             }
 
             function renderItemList() {
+                currentIndentItems.sort((a, b) => a.PRODUCT_NAME.localeCompare(b.PRODUCT_NAME));
                 const itemListContainer = document.getElementById('item-list-container');
                 if (!itemListContainer) return;
                 itemListContainer.innerHTML = '';
