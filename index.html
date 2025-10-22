@@ -425,7 +425,7 @@
                         const imgProps = doc.getImageProperties(logoData);
                         const imgWidth = 35; 
                         const imgHeight = imgProps.height * (imgWidth / imgProps.width);
-                        doc.addImage(logoData, imgProps.fileType, rightAlignX - imgWidth, yPos, imgWidth, imgHeight);
+                        doc.addImage(logoData, imgProps.fileType, rightAlignX - imgWidth, yPos - 4, imgWidth, imgHeight);
                     } catch(e) { console.error("Could not add logo to PDF.", e); }
                 }
 
