@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swiggy Ops</title>
+
+    <!-- Link to Manifest for PWA features -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Favicon Link -->
+    <link rel="icon" href="logo.png" type="image/png">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- jsPDF Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #EA580C;
+            --secondary-color: #111827;
+            --background-color: #F9FAFB;
+            --panel-background: #FFFFFF;
+            --text-primary: #1F2937;
+            --text-secondary: #6B7280;
+            --border-color: #E5E7EB;
+            --success-color: #10B981;
+            --error-color: #EF4444;
+            --edit-color: #3B82F6;
+            --border-radius: 0.75rem;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-primary);
+        }
+
+        .app-container {
+            display: grid;
+            width: 100%;
+            height: 100%;
+            grid-template-columns: 380px 1fr;
+        }
+
+        .controls-panel {
+            background-color: var(--panel-background);
+            border-right: 1px solid var(--border-color);
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            overflow-y: auto;
+        }
+
+        .content-panel {
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .header { text-align: center; }
+        .header img { width: 80px; height: 80px; margin-bottom: 1rem; }
+        .header h1 { font-size: 1.875rem; font-weight: 700; }
+        
+        #master-list-status { font-size: 0.875rem; font-weight: 500; padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; }
+        #master-list-status.loaded { color: var(--success-color); background-color: #D1FAE5; }
+        #master-list-status.not-loaded { color: var(--error-color); background-color: #FEE2E2; }
+        
+        .file-input-wrapper { border: 2px dashed var(--border-color); border-radius: var(--border-radius); padding: 2.5rem 1.5rem; text-align: center; transition: border-color 0.3s; }
+        .file-input-wrapper:hover { border-color: var(--primary-color); }
+        .file-input-wrapper input[type="file"] { display: none; }
+        .file-input-label { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; color: var(--primary-color); font-weight: 600; cursor: pointer; }
+        .file-name { margin-top: 1rem; font-size: 0.875rem; color: var(--text-secondary); font-style: italic; }
+        
+        .action-buttons { display: flex; flex-direction: column; gap: 0.75rem; }
+        .action-buttons button {
+            color: #FFFFFF; padding: 0.75rem 1.5rem; border: none; border-radius: 0.5rem; cursor: pointer; font-size: 1rem; font-weight: 600; transition: background-color 0.2s, transform 0.2s;
+        }
+        #packing-slip-btn { background-color: var(--secondary-color); }
+        #prepare-invoice-btn { background-color: var(--primary-color); }
+        .action-buttons button:hover:not(:disabled) { transform: translateY(-2px); }
+        .action-buttons button:disabled { background-color: #9CA3AF; cursor: not-allowed; }
+
+        #billing-section { text-align: left; }
+        #billing-section h2 { font-size: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; }
+        .invoice-details { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+        .invoice-details .input-group { display: flex; flex-direction: column; }
+        .invoice-details label { font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem; color: var(--text-secondary); }
+        .invoice-details input { padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; font-family: 'Inter', sans-serif; transition: border-color 0.2s, box-shadow 0.2s; }
+        .invoice-details input:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.1); outline: none; }
+        
+        #item-list-container { max-height: 40vh; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius); }
+        .item-row { display: grid; grid-template-columns: 1fr auto auto 88px; align-items: center; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color); gap: 0.5rem; }
+        .item-row:nth-child(even) { background-color: #F9FAFB; }
+        .item-row:last-child { border-bottom: none; }
+        .item-name { font-weight: 500; word-break: break-word; }
+        .item-info { color: var(--text-secondary); padding: 0 0.5rem; text-align: right; white-space: nowrap; }
+        .item-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+        .item-actions button { border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; transition: background-color 0.2s; display: flex; align-items: center; justify-content: center; }
+        .remove-btn { background-color: #FFF1F2; color: var(--error-color); }
+        .remove-btn:hover { background-color: #FEE2E2; }
+        .edit-btn { background-color: #EFF6FF; color: var(--edit-color); }
+        .edit-btn:hover { background-color: #DBEAFE; }
+        
+        .top-buttons { position: fixed; top: 1.5rem; right: 1.5rem; display: flex; gap: 0.5rem; z-index: 1001; }
+        .top-buttons button { background: var(--panel-background); border: 1px solid var(--border-color); border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        
+        #content-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; color: var(--text-secondary); }
+        #content-placeholder h2 { font-size: 1.25rem; }
+        #content-placeholder p { margin-top: 0.5rem; }
+        
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; z-index: 1000; }
+        .modal-overlay.visible { opacity: 1; visibility: visible; }
+        .modal-content { background: #fff; padding: 2rem; border-radius: var(--border-radius); max-width: 600px; width: 90%; text-align: center; }
+        .modal-content h2 { margin-bottom: 1rem; }
+        .modal-content .input-group { text-align: left; margin-bottom: 1rem; }
+        .modal-content label { font-weight: 500; font-size: 0.9rem; }
+        .modal-content textarea { width: 100%; padding: 0.5rem; border-radius: 0.5rem; border: 1px solid var(--border-color); min-height: 80px; font-family: 'Inter', sans-serif; }
+        .modal-buttons { margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.5rem; }
+        .modal-buttons button { padding: 0.5rem 1rem; border-radius: 0.5rem; border: none; cursor: pointer; font-weight: 500; }
+        #settings-save-btn { background-color: var(--success-color); color: #fff; }
+        #modal-close-btn, #history-close-btn, #history-back-btn { background: var(--border-color); color: var(--text-primary); }
+
+        #history-list-container { max-height: 60vh; overflow-y: auto; text-align: left; }
+        .history-item { display: grid; grid-template-columns: 1fr 1fr auto; align-items: center; padding: 1rem; border-bottom: 1px solid var(--border-color); }
+        .history-item-info span { display: block; }
+        .history-item-info .label { font-size: 0.75rem; color: var(--text-secondary); }
+        .history-actions { display: flex; gap: 0.5rem; }
+        .history-actions button { background: none; border: 1px solid var(--border-color); border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color 0.2s; }
+        .history-view-btn { color: var(--edit-color); }
+        .history-view-btn:hover { background-color: #EFF6FF; }
+        .history-download-btn { color: var(--primary-color); }
+        .history-download-btn:hover { background-color: #FEF2F2; }
+        .history-delete-btn { color: var(--error-color); }
+        .history-delete-btn:hover { background-color: #FFF1F2; }
+
+        .history-detail-view { text-align: left; }
+        .history-detail-view h3 { font-size: 1.25rem; margin-bottom: 0.5rem; }
+        .history-detail-view table { width: 100%; margin-top: 1rem; border-collapse: collapse; }
+        .history-detail-view th, .history-detail-view td { padding: 0.5rem; text-align: left; border-bottom: 1px solid var(--border-color); }
+        .history-detail-view th { font-size: 0.75rem; color: var(--text-secondary); }
+
+        @media (max-width: 768px) {
+            .app-container { grid-template-columns: 1fr; height: auto; }
+            .controls-panel { border-right: none; border-bottom: 1px solid var(--border-color); padding: 1.5rem; }
+            .content-panel { padding: 1.5rem; }
+            .top-buttons { top: 1rem; right: 1rem; }
+            .invoice-details { grid-template-columns: 1fr; }
+            .history-item { grid-template-columns: 1fr auto; gap: 1rem; }
+            .item-row { grid-template-columns: 1fr 88px; grid-template-areas: "name actions" "info actions"; padding: 0.75rem; }
+            .item-name { grid-area: name; }
+            .item-info { display: none; }
+            .item-actions { grid-area: actions; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="controls-panel">
+            <div class="header">
+                <img src="logo.png" alt="Swiggy Ops Logo">
+                <h1>Swiggy Ops</h1>
+            </div>
+            <div id="master-list-status">Checking Master List...</div>
+            <div class="file-input-wrapper">
+                <label for="indent-file" class="file-input-label">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-secondary);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                    <span>Upload Indent File</span>
+                </label>
+                <input type="file" id="indent-file" accept=".csv, text/csv, application/vnd.ms-excel, text/plain">
+                <div class="file-name" id="indent-file-name">No file selected</div>
+            </div>
+            <div class="action-buttons">
+                <button id="packing-slip-btn" disabled>Generate Packing Slip</button>
+                <button id="prepare-invoice-btn" disabled>Prepare Invoice</button>
+            </div>
+        </div>
+        <div class="content-panel" id="content-panel">
+             <div id="content-placeholder">
+                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="color: var(--border-color)"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" y2="9"></line></svg>
+                <h2>Workspace</h2>
+                <p>Upload an indent file to begin.</p>
+             </div>
+        </div>
+    </div>
+    
+    <div class="top-buttons">
+        <button id="history-btn" title="History"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></button>
+        <button id="settings-btn" title="Settings"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
+    </div>
+    
+    <div class="modal-overlay" id="settings-modal"><div class="modal-content"><h2>Settings</h2><div class="input-group"><label for="billing-from-address">Billing From Address</label><textarea id="billing-from-address" placeholder="Your Company Name&#10;Street Address&#10;City, State, ZIP"></textarea></div><div class="input-group"><label for="billing-to-address">Bill To Address</label><textarea id="billing-to-address" placeholder="Client Company Name&#10;Street Address&#10;City, State, ZIP"></textarea></div><div class="input-group"><label>Master Item List</label><input type="file" id="master-list-file" accept=".csv, text/csv, application/vnd.ms-excel, text/plain" style="display: block; margin-top: 0.5rem;"></div><div class="modal-buttons"><button id="modal-close-btn">Close</button><button id="settings-save-btn">Save Settings</button></div></div></div>
+    <div class="modal-overlay" id="history-modal"><div class="modal-content"><h2 id="history-modal-title">Invoice History</h2><div id="history-list-container"></div><div class="modal-buttons"><button id="history-back-btn" style="display: none;">Back</button><button id="history-close-btn">Close</button></div></div></div>
+    
+    <template id="billing-template">
+        <div id="billing-section">
+            <h2>Invoice Editor</h2>
+            <div class="invoice-details">
+                <div class="input-group"><label for="invoice-no">Invoice No.</label><input type="text" id="invoice-no"></div>
+                <div class="input-group"><label for="invoice-date">Invoice Date</label><input type="text" id="invoice-date" placeholder="DD/MM/YY"></div>
+            </div>
+            <h3>Items</h3>
+            <div id="item-list-container"></div>
+            <div class="action-buttons"><button id="generate-invoice-btn" style="background-color: var(--success-color);">Generate Invoice PDF</button></div>
+        </div>
+    </template>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            let currentIndentItems = [];
+            let masterListData = null;
+            
+            const indentFileInput = document.getElementById('indent-file');
+            const indentFileName = document.getElementById('indent-file-name');
+            const packingSlipBtn = document.getElementById('packing-slip-btn');
+            const prepareInvoiceBtn = document.getElementById('prepare-invoice-btn');
+            const contentPanel = document.getElementById('content-panel');
+            const masterListStatus = document.getElementById('master-list-status');
+            const settingsBtn = document.getElementById('settings-btn');
+            const historyBtn = document.getElementById('history-btn');
+            const settingsModal = document.getElementById('settings-modal');
+            const historyModal = document.getElementById('history-modal');
+            const modalCloseBtn = document.getElementById('modal-close-btn');
+            const historyCloseBtn = document.getElementById('history-close-btn');
+            const historyBackBtn = document.getElementById('history-back-btn');
+            const settingsSaveBtn = document.getElementById('settings-save-btn');
+            const historyListContainer = document.getElementById('history-list-container');
+            const historyModalTitle = document.getElementById('history-modal-title');
+            const masterListFileInput = document.getElementById('master-list-file');
+            const fromAddressText = document.getElementById('billing-from-address');
+            const toAddressText = document.getElementById('billing-to-address');
+
+            indentFileInput.addEventListener('change', handleIndentUpload);
+            packingSlipBtn.addEventListener('click', () => generatePackingSlipPDF(currentIndentItems));
+            prepareInvoiceBtn.addEventListener('click', showBillingSection);
+            settingsBtn.addEventListener('click', () => settingsModal.classList.add('visible'));
+            modalCloseBtn.addEventListener('click', () => settingsModal.classList.remove('visible'));
+            settingsSaveBtn.addEventListener('click', handleSettingsSave);
+            historyBtn.addEventListener('click', showHistoryModal);
+            historyCloseBtn.addEventListener('click', () => historyModal.classList.remove('visible'));
+            historyBackBtn.addEventListener('click', showHistoryModal);
+            historyListContainer.addEventListener('click', handleHistoryAction);
+            
+            loadSettings();
+
+            function loadSettings() {
+                masterListData = localStorage.getItem('masterListData');
+                fromAddressText.value = localStorage.getItem('fromAddress') || '';
+                toAddressText.value = localStorage.getItem('toAddress') || '';
+                checkMasterListStatus();
+            }
+
+            function checkMasterListStatus() {
+                 if (localStorage.getItem('masterListData')) {
+                    masterListStatus.textContent = 'Master List is loaded.';
+                    masterListStatus.className = 'loaded';
+                } else {
+                    masterListStatus.textContent = 'Action Required: Upload Master List';
+                    masterListStatus.className = 'not-loaded';
+                }
+            }
+
+            function handleSettingsSave() {
+                const masterFile = masterListFileInput.files[0];
+                const savePromises = [];
+                if (masterFile) {
+                    const readerPromise = readFile(masterFile).then(data => localStorage.setItem('masterListData', data));
+                    savePromises.push(readerPromise);
+                }
+                localStorage.setItem('fromAddress', fromAddressText.value);
+                localStorage.setItem('toAddress', toAddressText.value);
+                Promise.all(savePromises).then(() => {
+                    alert('Settings saved successfully!');
+                    loadSettings();
+                    settingsModal.classList.remove('visible');
+                });
+            }
+            
+            function handleIndentUpload() {
+                if (indentFileInput.files.length === 0) return;
+                const file = indentFileInput.files[0];
+                indentFileName.textContent = file.name;
+                readFile(file).then(indentData => {
+                    currentIndentItems = parseCSV(indentData);
+                    packingSlipBtn.disabled = false;
+                    prepareInvoiceBtn.disabled = false;
+                    contentPanel.innerHTML = document.getElementById('content-placeholder').innerHTML;
+                });
+            }
+
+            function showBillingSection() {
+                const template = document.getElementById('billing-template');
+                contentPanel.innerHTML = '';
+                contentPanel.appendChild(template.content.cloneNode(true));
+                
+                document.getElementById('invoice-date').value = getFormattedDate();
+                contentPanel.addEventListener('click', handleContentPanelClick);
+
+                renderItemList();
+            }
+
+            function renderItemList() {
+                currentIndentItems.sort((a, b) => a.PRODUCT_NAME.localeCompare(b.PRODUCT_NAME));
+                const itemListContainer = document.getElementById('item-list-container');
+                if (!itemListContainer) return;
+                itemListContainer.innerHTML = '';
+                if (currentIndentItems.length === 0) {
+                    itemListContainer.innerHTML = '<p style="padding: 1rem; text-align: center;">No items to display.</p>';
+                    return;
+                }
+                currentIndentItems.forEach((item, index) => {
+                    const itemRow = document.createElement('div');
+                    itemRow.className = 'item-row';
+                    itemRow.innerHTML = `
+                        <div class="item-name">${item.PRODUCT_NAME}</div>
+                        <div class="item-info">Qty: ${item.Indents}</div>
+                        <div class="item-info">Cost: ${item.Cost}</div>
+                        <div class="item-actions">
+                            <button class="edit-btn" data-index="${index}" title="Edit Quantity">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                            </button>
+                            <button class="remove-btn" data-index="${index}" title="Remove Item">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            </button>
+                        </div>
+                    `;
+                    itemListContainer.appendChild(itemRow);
+                });
+            }
+            
+            function handleContentPanelClick(event) {
+                const target = event.target.closest('button');
+                if (!target) return;
+
+                if (target.id === 'generate-invoice-btn') {
+                    generateProfessionalInvoicePDF();
+                } else if (target.classList.contains('remove-btn')) {
+                    const index = parseInt(target.dataset.index, 10);
+                    currentIndentItems.splice(index, 1);
+                    renderItemList();
+                } else if (target.classList.contains('edit-btn')) {
+                    const index = parseInt(target.dataset.index, 10);
+                    handleItemEdit(index);
+                }
+            }
+            
+            function handleItemEdit(index) {
+                const item = currentIndentItems[index];
+                const newQty = prompt(`Enter new quantity for:\n${item.PRODUCT_NAME}`, item.Indents);
+                if (newQty !== null && !isNaN(newQty) && newQty.trim() !== "") {
+                    currentIndentItems[index].Indents = newQty;
+                    renderItemList();
+                } else if (newQty !== null) {
+                    alert('Invalid quantity. Please enter a number.');
+                }
+            }
+
+            function showHistoryModal() {
+                historyModalTitle.textContent = 'Invoice History';
+                historyBackBtn.style.display = 'none';
+                historyCloseBtn.style.display = 'inline-block';
+
+                const history = JSON.parse(localStorage.getItem('invoiceHistory')) || {};
+                const sortedKeys = Object.keys(history).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).reverse();
+                
+                historyListContainer.innerHTML = '';
+                if (sortedKeys.length === 0) {
+                    historyListContainer.innerHTML = '<p>No saved invoices found.</p>';
+                    return;
+                }
+                
+                sortedKeys.forEach(key => {
+                    const item = history[key];
+                    const historyItem = document.createElement('div');
+                    historyItem.className = 'history-item';
+                    historyItem.innerHTML = `
+                        <div class="history-item-info">
+                            <span class="label">Invoice #</span>
+                            <span>${item.invoiceNo}</span>
+                        </div>
+                        <div class="history-item-info">
+                            <span class="label">Date</span>
+                            <span>${item.invoiceDate}</span>
+                        </div>
+                        <div class="history-actions">
+                            <button class="history-view-btn" data-invoice-no="${item.invoiceNo}" title="View"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+                            <button class="history-download-btn" data-invoice-no="${item.invoiceNo}" title="Download"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></button>
+                             <button class="history-delete-btn" data-invoice-no="${item.invoiceNo}" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>
+                        </div>
+                    `;
+                    historyListContainer.appendChild(historyItem);
+                });
+                historyModal.classList.add('visible');
+            }
+
+            function handleHistoryAction(event) {
+                const target = event.target.closest('button');
+                if (!target) return;
+                
+                const invoiceNo = target.dataset.invoiceNo;
+                if (target.classList.contains('history-download-btn')) {
+                    const history = JSON.parse(localStorage.getItem('invoiceHistory'));
+                    if (history[invoiceNo]) generateProfessionalInvoicePDF(history[invoiceNo]);
+                } else if (target.classList.contains('history-delete-btn')) {
+                    if (confirm(`Are you sure you want to delete Invoice #${invoiceNo}?`)) {
+                        const history = JSON.parse(localStorage.getItem('invoiceHistory'));
+                        delete history[invoiceNo];
+                        localStorage.setItem('invoiceHistory', JSON.stringify(history));
+                        showHistoryModal();
+                    }
+                } else if (target.classList.contains('history-view-btn')) {
+                    const history = JSON.parse(localStorage.getItem('invoiceHistory'));
+                    if (history[invoiceNo]) showHistoryDetailView(history[invoiceNo]);
+                }
+            }
+
+            function showHistoryDetailView(invoiceData) {
+                historyModalTitle.textContent = `Details for Invoice #${invoiceData.invoiceNo}`;
+                historyCloseBtn.style.display = 'none';
+                historyBackBtn.style.display = 'inline-block';
+
+                historyListContainer.innerHTML = `
+                    <div class="history-detail-view">
+                        <p style="color: var(--text-secondary); margin-bottom: 1rem;">Date: ${invoiceData.invoiceDate}</p>
+                        <table>
+    <thead><tr><th>Sl.</th><th>Code</th><th>Item</th><th>Qty</th><th>Rate</th></tr></thead>
+    <tbody>
+        ${invoiceData.items.map((item, index) => `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${item.ITEM_CODE}</td>
+                <td>${item.PRODUCT_NAME}</td>
+                <td>${item.Indents}</td>
+                <td>${item.Cost}</td>
+            </tr>
+        `).join('')}
+    </tbody>
+</table>
+                        <h4 style="margin-top: 1rem; text-align: right;">Grand Total: Rs. ${invoiceData.grandTotal.toFixed(2)}</h4>
+                    </div>
+                `;
+            }
+
+            function saveInvoiceToHistory(invoiceData) {
+                if (!invoiceData.invoiceNo || invoiceData.invoiceNo === 'N/A') {
+                    alert('Cannot save to history without an Invoice Number.');
+                    return;
+                }
+                const history = JSON.parse(localStorage.getItem('invoiceHistory')) || {};
+                history[invoiceData.invoiceNo] = invoiceData;
+                localStorage.setItem('invoiceHistory', JSON.stringify(history));
+            }
+            
+            function getFormattedDate(date = new Date()) {
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = String(date.getFullYear()).slice(-2);
+                return `${day}/${month}/${year}`;
+            }
+
+            function generateProfessionalInvoicePDF(historicalData = null) {
+                const isNewInvoice = !historicalData;
+                let data;
+                if (isNewInvoice) {
+                    const invoiceNo = document.getElementById('invoice-no').value;
+                    const grandTotal = currentIndentItems.reduce((sum, item) => sum + (parseFloat(item.Cost) || 0) * (parseFloat(item.Indents) || 0), 0);
+                    data = {
+                        invoiceNo: invoiceNo,
+                        invoiceDate: document.getElementById('invoice-date').value,
+                        fromAddress: (localStorage.getItem('fromAddress') || 'From Address Not Set').split('\n'),
+                        toAddress: (localStorage.getItem('toAddress') || 'To Address Not Set').split('\n'),
+                        items: [...currentIndentItems],
+                        grandTotal: grandTotal
+                    };
+                    saveInvoiceToHistory(data);
+                } else {
+                    data = historicalData;
+                }
+                data.items.sort((a, b) => a.PRODUCT_NAME.localeCompare(b.PRODUCT_NAME));
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                const margin = 14;
+                const lineHeight = 4.5;
+                const pageHeight = doc.internal.pageSize.height;
+                const pageWidth = doc.internal.pageSize.width;
+                const lightGray = '#F3F4F6';
+                const darkGray = '#1F2937';
+// --- FINAL CLEAN HEADER ---
+let yPos = margin + 8;
+
+// Main Title and From Address
+doc.setFontSize(16).setFont('helvetica', 'bold').setTextColor(darkGray).text('INVOICE', margin, yPos);
+yPos += 8;
+doc.setFontSize(9).setFont('helvetica', 'normal').setTextColor(darkGray).text(Array.isArray(data.fromAddress) ? data.fromAddress.join('\n') : data.fromAddress, margin, yPos);
+const fromAddressHeight = doc.getTextDimensions(Array.isArray(data.fromAddress) ? data.fromAddress.join('\n') : data.fromAddress).h;
+yPos += fromAddressHeight + 8;
+
+// Separator Line
+doc.setDrawColor(220).setLineWidth(0.2).line(margin, yPos, pageWidth - margin, yPos);
+yPos += 8;
+
+// Store this Y position, as both left and right columns start here.
+const detailsStartY = yPos;
+
+// LEFT: Bill To Address
+doc.setFontSize(8).setFont('helvetica', 'bold').setTextColor(150).text('BILL TO', margin, detailsStartY);
+doc.setFontSize(9).setFont('helvetica', 'normal').setTextColor(darkGray).text(Array.isArray(data.toAddress) ? data.toAddress.join('\n') : data.toAddress, margin, detailsStartY + lineHeight);
+const toAddressHeight = doc.getTextDimensions(Array.isArray(data.toAddress) ? data.toAddress.join('\n') : data.toAddress).h;
+
+// RIGHT: Invoice Details
+const rightAlignX = pageWidth - margin;
+const labelX = rightAlignX - 30;
+doc.setFontSize(9).setFont('helvetica', 'bold').setTextColor(150);
+doc.text('Invoice :', labelX, detailsStartY, { align: 'left' });
+doc.text('Date:', labelX, detailsStartY + lineHeight * 2, { align: 'left' });
+
+doc.setFontSize(10).setFont('helvetica', 'normal').setTextColor(darkGray);
+doc.text(data.invoiceNo, rightAlignX, detailsStartY, { align: 'right' });
+doc.text(data.invoiceDate, rightAlignX, detailsStartY + lineHeight * 2, { align: 'right' });
+const detailsHeight = lineHeight * 2 + 5; // Approximate height of the right block.
+
+// Determine start of table based on the taller of the two columns below the line
+const tableStartY = detailsStartY + Math.max(toAddressHeight, detailsHeight) + 15;
+                
+                const tableColumn = ["Sl.", "Code", "Item Description", "Qty", "Rate", "Total"];
+const tableRows = data.items.map((item, index) => {
+    const cost = parseFloat(item.Cost) || 0;
+    const indents = parseFloat(item.Indents) || 0;
+    const total = indents * cost;
+    return [index + 1, item.ITEM_CODE, item.PRODUCT_NAME, indents, cost.toFixed(2), total.toFixed(2)]
+});
+
+doc.autoTable({
+    head: [tableColumn], body: tableRows, startY: tableStartY,
+    theme: 'grid',
+    headStyles: { fillColor: darkGray, textColor: 255, fontStyle: 'bold', fontSize: 8 },
+    styles: { fontSize: 8, cellPadding: 1.5 },
+    alternateRowStyles: { fillColor: lightGray },
+    columnStyles: {
+        0: { halign: 'center', cellWidth: 8 },   // Sl.
+        1: { cellWidth: 20 },                    // Code
+        2: { cellWidth: 'auto' },                // Item Description
+        3: { halign: 'right', cellWidth: 15 },   // Qty
+        4: { halign: 'right', cellWidth: 25 },   // Rate
+        5: { halign: 'right', cellWidth: 25 }    // Total
+    }
+});
+
+                let finalY = doc.autoTable.previous.finalY;
+                 if (finalY > pageHeight - 40) { doc.addPage(); finalY = margin; }
+                
+                doc.setFillColor(lightGray).rect(pageWidth / 2, finalY + 8, pageWidth / 2 - margin, 12, 'F');
+                doc.setFontSize(12).setFont('helvetica', 'bold').setTextColor(darkGray);
+                doc.text('Grand Total:', pageWidth / 2 + 5, finalY + 16);
+                doc.text(`Rs. ${data.grandTotal.toFixed(2)}`, pageWidth - margin, finalY + 16, { align: 'right' });
+                doc.setFontSize(9).setTextColor(150).text('Thank you for your business!', pageWidth / 2, pageHeight - 12, { align: 'center' });
+                
+                doc.save(`Invoice_${data.invoiceNo || 'bill'}.pdf`);
+            }
+            
+            function readFile(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = event => resolve(event.target.result); reader.onerror = error => reject(error); reader.readAsText(file); }); }
+            
+            function parseCSV(data) { const rows = data.replace(/\r/g, "").split('\n').filter(row => row.trim() !== ''); if (rows.length < 1) return []; const headerLine = rows.shift(); const headers = headerLine.split(',').map(h => h.trim().replace(/"/g, '')); return rows.map(row => { const values = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); return headers.reduce((obj, header, i) => { const value = values[i] ? values[i].trim() : ''; obj[header] = value.startsWith('"') && value.endsWith('"') ? value.slice(1, -1) : value; return obj; }, {}); }); }
+            
+            function generatePackingSlipPDF(items){if(!masterListData){alert('Cannot generate packing slip without a Master List.');return}const masterItems=parseCSV(masterListData);const masterListMap=new Map();masterItems.forEach(item=>{if(item.ITEM_CODE)masterListMap.set(item.ITEM_CODE,{malayalamName:item['malayalam name'],storageCode:item['Storage code']})});const mergedData=items.map(item=>{const masterInfo=masterListMap.get(item.ITEM_CODE);return masterInfo?{...item,...masterInfo}:null}).filter(Boolean);const{jsPDF}=window.jspdf;const doc=new jsPDF();const today=(new Date).toLocaleDateString('en-GB');const groupedData=mergedData.reduce((acc,item)=>{const key=item.storageCode||'Uncategorized';if(!acc[key])acc[key]=[];acc[key].push(item);return acc},{});for(const key in groupedData)groupedData[key].sort((a,b)=>a.PRODUCT_NAME.localeCompare(b.PRODUCT_NAME));const storageNames={'A':'Ambient Items','C':'Chiller Items','T':'Tray Items','Uncategorized':'Uncategorized Items'};let slNoCounter=1;const addPageHeader=()=>{doc.setFontSize(20).setFont('helvetica','bold').text('Packing Slip',doc.internal.pageSize.getWidth()/2,22,{align:'center'});doc.setFontSize(11).setFont('helvetica','normal').setTextColor(100).text(`Date: ${today}`,14,29)};addPageHeader();let startY=40;const page1Categories=['A','C'];for(const code of page1Categories){if(groupedData[code]){const items=groupedData[code];const groupName=`${storageNames[code]} (${code})`;doc.setFontSize(14).setFont('helvetica','bold').text(groupName,14,startY);startY+=8;const tableColumn=["Sl.","Code","English Name","Malayalam Name","Weight","Qty",""];const tableRows=items.map(item=>[slNoCounter++,item.ITEM_CODE,item.PRODUCT_NAME,item.malayalamName,item.WEIGHT,item.Indents,'']);doc.autoTable({head:[tableColumn],body:tableRows,startY:startY,theme:'grid',headStyles:{fillColor:[44,62,80]},styles:{cellPadding:1.5,fontSize:9,textColor:[0,0,0]},alternateRowStyles:{fillColor:[245,245,245]},columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:15},2:{cellWidth:55},3:{cellWidth:40},4:{cellWidth:20},5:{cellWidth:10,halign:'center'},6:{cellWidth:15}}});startY=doc.autoTable.previous.finalY+10}}if(groupedData['T']){doc.addPage();startY=20;const items=groupedData['T'];const groupName=`${storageNames['T']} (T)`;doc.setFontSize(14).setFont('helvetica','bold').text(groupName,14,startY);startY+=8;const tableColumn=["Sl.","Code","English Name","Malayalam Name","Weight","Qty",""];const tableRows=items.map(item=>[slNoCounter++,item.ITEM_CODE,item.PRODUCT_NAME,item.malayalamName,item.WEIGHT,item.Indents,'']);doc.autoTable({head:[tableColumn],body:tableRows,startY:startY,theme:'grid',headStyles:{fillColor:[44,62,80]},styles:{cellPadding:1,fontSize:8,textColor:[0,0,0]},alternateRowStyles:{fillColor:[245,245,245]},columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:15},2:{cellWidth:55},3:{cellWidth:40},4:{cellWidth:20},5:{cellWidth:10,halign:'center'},6:{cellWidth:15}}})}doc.save(`Packing_Slip_${today.replace(/\//g,'-')}.pdf`)}
+        });
+    </script>
+</body>
+</html>
