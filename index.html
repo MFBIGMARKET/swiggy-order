@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Swiggy Ops</title>
-
+    
     <!-- Link to Manifest for PWA features -->
     <link rel="manifest" href="manifest.json">
 
@@ -200,7 +200,7 @@
         <button id="settings-btn" title="Settings"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
     </div>
     
-    <div class="modal-overlay" id="settings-modal"><div class="modal-content"><h2>Settings</h2><div class="input-group"><label for="billing-from-address">Billing From Address</label><textarea id="billing-from-address" placeholder="Your Company Name&#10;Street Address&#10;City, State, ZIP"></textarea></div><div class="input-group"><label for="billing-to-address">Bill To Address</label><textarea id="billing-to-address" placeholder="Client Company Name&#10;Street Address&#10;City, State, ZIP"></textarea></div><div class="input-group"><label>Master Item List</label><input type="file" id="master-list-file" accept=".csv, text/csv, application/vnd.ms-excel, text/plain" style="display: block; margin-top: 0.5rem;"></div><div class="modal-buttons"><button id="modal-close-btn">Close</button><button id="settings-save-btn">Save Settings</button></div></div></div>
+    <div class="modal-overlay" id="settings-modal"><div class="modal-content"><h2>Settings</h2><div class="input-group"><label for="billing-from-address">Billing From Address</label><textarea id="billing-from-address" placeholder="Your Company Name&#10;Street Address&#10;City, State, ZIP"></textarea></div><div class="input-group"><label for="billing-to-address">Bill To Address</label><textarea id="billing-to-address" placeholder="Client Company Name&#10;Street Address&#10;City, State, ZIP"></textarea></div><div class="input-group"><label for="company-logo-file">Company Logo</label><img id="logo-preview" src="" alt="Logo Preview" style="max-width: 100px; max-height: 100px; display: none; margin-top: 0.5rem;"><input type="file" id="company-logo-file" accept="image/*" style="display: block; margin-top: 0.5rem;"></div><div class="input-group"><label>Master Item List</label><input type="file" id="master-list-file" accept=".csv, text/csv, application/vnd.ms-excel, text/plain" style="display: block; margin-top: 0.5rem;"></div><div class="modal-buttons"><button id="modal-close-btn">Close</button><button id="settings-save-btn">Save Settings</button></div></div></div>
     <div class="modal-overlay" id="history-modal"><div class="modal-content"><h2 id="history-modal-title">Invoice History</h2><div id="history-list-container"></div><div class="modal-buttons"><button id="history-back-btn" style="display: none;">Back</button><button id="history-close-btn">Close</button></div></div></div>
     
     <template id="billing-template">
@@ -240,7 +240,7 @@
             const masterListFileInput = document.getElementById('master-list-file');
             const fromAddressText = document.getElementById('billing-from-address');
             const toAddressText = document.getElementById('billing-to-address');
-
+            
             indentFileInput.addEventListener('change', handleIndentUpload);
             packingSlipBtn.addEventListener('click', () => generatePackingSlipPDF(currentIndentItems));
             prepareInvoiceBtn.addEventListener('click', showBillingSection);
@@ -258,11 +258,14 @@
                 masterListData = localStorage.getItem('masterListData');
                 fromAddressText.value = localStorage.getItem('fromAddress') || '';
                 toAddressText.value = localStorage.getItem('toAddress') || '';
+                const logoData = localStorage.getItem('companyLogo');
+                document.getElementById('logo-preview').style.display = logoData ? 'block' : 'none';
+                document.getElementById('logo-preview').src = logoData || '';
                 checkMasterListStatus();
             }
 
             function checkMasterListStatus() {
-                 if (localStorage.getItem('masterListData')) {
+                if (localStorage.getItem('masterListData')) {
                     masterListStatus.textContent = 'Master List is loaded.';
                     masterListStatus.className = 'loaded';
                 } else {
@@ -273,13 +276,22 @@
 
             function handleSettingsSave() {
                 const masterFile = masterListFileInput.files[0];
+                const logoFile = document.getElementById('company-logo-file').files[0];
                 const savePromises = [];
+
                 if (masterFile) {
-                    const readerPromise = readFile(masterFile).then(data => localStorage.setItem('masterListData', data));
+                    const readerPromise = readFile(masterFile, 'text').then(data => localStorage.setItem('masterListData', data));
                     savePromises.push(readerPromise);
                 }
+
+                if (logoFile) {
+                    const logoPromise = readFile(logoFile, 'dataURL').then(logoData => localStorage.setItem('companyLogo', logoData));
+                    savePromises.push(logoPromise);
+                }
+
                 localStorage.setItem('fromAddress', fromAddressText.value);
                 localStorage.setItem('toAddress', toAddressText.value);
+                
                 Promise.all(savePromises).then(() => {
                     alert('Settings saved successfully!');
                     loadSettings();
@@ -311,9 +323,9 @@
             }
 
             function renderItemList() {
-                currentIndentItems.sort((a, b) => a.PRODUCT_NAME.localeCompare(b.PRODUCT_NAME));
                 const itemListContainer = document.getElementById('item-list-container');
                 if (!itemListContainer) return;
+                currentIndentItems.sort((a, b) => a.PRODUCT_NAME.localeCompare(b.PRODUCT_NAME));
                 itemListContainer.innerHTML = '';
                 if (currentIndentItems.length === 0) {
                     itemListContainer.innerHTML = '<p style="padding: 1rem; text-align: center;">No items to display.</p>';
@@ -342,7 +354,6 @@
             function handleContentPanelClick(event) {
                 const target = event.target.closest('button');
                 if (!target) return;
-
                 if (target.id === 'generate-invoice-btn') {
                     generateProfessionalInvoicePDF();
                 } else if (target.classList.contains('remove-btn')) {
@@ -365,102 +376,6 @@
                     alert('Invalid quantity. Please enter a number.');
                 }
             }
-
-            function showHistoryModal() {
-                historyModalTitle.textContent = 'Invoice History';
-                historyBackBtn.style.display = 'none';
-                historyCloseBtn.style.display = 'inline-block';
-
-                const history = JSON.parse(localStorage.getItem('invoiceHistory')) || {};
-                const sortedKeys = Object.keys(history).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).reverse();
-                
-                historyListContainer.innerHTML = '';
-                if (sortedKeys.length === 0) {
-                    historyListContainer.innerHTML = '<p>No saved invoices found.</p>';
-                    return;
-                }
-                
-                sortedKeys.forEach(key => {
-                    const item = history[key];
-                    const historyItem = document.createElement('div');
-                    historyItem.className = 'history-item';
-                    historyItem.innerHTML = `
-                        <div class="history-item-info">
-                            <span class="label">Invoice #</span>
-                            <span>${item.invoiceNo}</span>
-                        </div>
-                        <div class="history-item-info">
-                            <span class="label">Date</span>
-                            <span>${item.invoiceDate}</span>
-                        </div>
-                        <div class="history-actions">
-                            <button class="history-view-btn" data-invoice-no="${item.invoiceNo}" title="View"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
-                            <button class="history-download-btn" data-invoice-no="${item.invoiceNo}" title="Download"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></button>
-                             <button class="history-delete-btn" data-invoice-no="${item.invoiceNo}" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>
-                        </div>
-                    `;
-                    historyListContainer.appendChild(historyItem);
-                });
-                historyModal.classList.add('visible');
-            }
-
-            function handleHistoryAction(event) {
-                const target = event.target.closest('button');
-                if (!target) return;
-                
-                const invoiceNo = target.dataset.invoiceNo;
-                if (target.classList.contains('history-download-btn')) {
-                    const history = JSON.parse(localStorage.getItem('invoiceHistory'));
-                    if (history[invoiceNo]) generateProfessionalInvoicePDF(history[invoiceNo]);
-                } else if (target.classList.contains('history-delete-btn')) {
-                    if (confirm(`Are you sure you want to delete Invoice #${invoiceNo}?`)) {
-                        const history = JSON.parse(localStorage.getItem('invoiceHistory'));
-                        delete history[invoiceNo];
-                        localStorage.setItem('invoiceHistory', JSON.stringify(history));
-                        showHistoryModal();
-                    }
-                } else if (target.classList.contains('history-view-btn')) {
-                    const history = JSON.parse(localStorage.getItem('invoiceHistory'));
-                    if (history[invoiceNo]) showHistoryDetailView(history[invoiceNo]);
-                }
-            }
-
-            function showHistoryDetailView(invoiceData) {
-                historyModalTitle.textContent = `Details for Invoice #${invoiceData.invoiceNo}`;
-                historyCloseBtn.style.display = 'none';
-                historyBackBtn.style.display = 'inline-block';
-
-                historyListContainer.innerHTML = `
-                    <div class="history-detail-view">
-                        <p style="color: var(--text-secondary); margin-bottom: 1rem;">Date: ${invoiceData.invoiceDate}</p>
-                        <table>
-    <thead><tr><th>Sl.</th><th>Code</th><th>Item</th><th>Qty</th><th>Rate</th></tr></thead>
-    <tbody>
-        ${invoiceData.items.map((item, index) => `
-            <tr>
-                <td>${index + 1}</td>
-                <td>${item.ITEM_CODE}</td>
-                <td>${item.PRODUCT_NAME}</td>
-                <td>${item.Indents}</td>
-                <td>${item.Cost}</td>
-            </tr>
-        `).join('')}
-    </tbody>
-</table>
-                        <h4 style="margin-top: 1rem; text-align: right;">Grand Total: Rs. ${invoiceData.grandTotal.toFixed(2)}</h4>
-                    </div>
-                `;
-            }
-
-            function saveInvoiceToHistory(invoiceData) {
-                if (!invoiceData.invoiceNo || invoiceData.invoiceNo === 'N/A') {
-                    alert('Cannot save to history without an Invoice Number.');
-                    return;
-                }
-                const history = JSON.parse(localStorage.getItem('invoiceHistory')) || {};
-                history[invoiceData.invoiceNo] = invoiceData;
-                localStorage.setItem('invoiceHistory', JSON.stringify(history));
-            }
             
             function getFormattedDate(date = new Date()) {
                 const day = String(date.getDate()).padStart(2, '0');
@@ -472,6 +387,8 @@
             function generateProfessionalInvoicePDF(historicalData = null) {
                 const isNewInvoice = !historicalData;
                 let data;
+                const logoData = localStorage.getItem('companyLogo');
+
                 if (isNewInvoice) {
                     const invoiceNo = document.getElementById('invoice-no').value;
                     const grandTotal = currentIndentItems.reduce((sum, item) => sum + (parseFloat(item.Cost) || 0) * (parseFloat(item.Indents) || 0), 0);
@@ -487,75 +404,78 @@
                 } else {
                     data = historicalData;
                 }
+                
                 data.items.sort((a, b) => a.PRODUCT_NAME.localeCompare(b.PRODUCT_NAME));
+
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
+                
                 const margin = 14;
                 const lineHeight = 4.5;
-                const pageHeight = doc.internal.pageSize.height;
                 const pageWidth = doc.internal.pageSize.width;
+                const pageHeight = doc.internal.pageSize.height;
                 const lightGray = '#F3F4F6';
                 const darkGray = '#1F2937';
-// --- FINAL CLEAN HEADER ---
-let yPos = margin + 8;
+                let yPos = margin;
+                const rightAlignX = pageWidth - margin;
 
-// Main Title and From Address
-doc.setFontSize(16).setFont('helvetica', 'bold').setTextColor(darkGray).text('INVOICE', margin, yPos);
-yPos += 8;
-doc.setFontSize(9).setFont('helvetica', 'normal').setTextColor(darkGray).text(Array.isArray(data.fromAddress) ? data.fromAddress.join('\n') : data.fromAddress, margin, yPos);
-const fromAddressHeight = doc.getTextDimensions(Array.isArray(data.fromAddress) ? data.fromAddress.join('\n') : data.fromAddress).h;
-yPos += fromAddressHeight + 8;
+                // --- NEW FINAL HEADER ---
+                if (logoData) {
+                    try {
+                        const imgProps = doc.getImageProperties(logoData);
+                        const imgWidth = 35; 
+                        const imgHeight = imgProps.height * (imgWidth / imgProps.width);
+                        doc.addImage(logoData, imgProps.fileType, rightAlignX - imgWidth, yPos, imgWidth, imgHeight);
+                    } catch(e) { console.error("Could not add logo to PDF.", e); }
+                }
 
-// Separator Line
-doc.setDrawColor(220).setLineWidth(0.2).line(margin, yPos, pageWidth - margin, yPos);
-yPos += 8;
+                doc.setFontSize(16).setFont('helvetica', 'bold').setTextColor(darkGray).text('INVOICE', margin, yPos + 8);
+                
+                yPos += 15;
+                
+                doc.setFontSize(9).setFont('helvetica', 'normal').setTextColor(darkGray).text(Array.isArray(data.fromAddress) ? data.fromAddress.join('\n') : data.fromAddress, margin, yPos);
+                const fromAddressHeight = doc.getTextDimensions(Array.isArray(data.fromAddress) ? data.fromAddress.join('\n') : data.fromAddress).h;
+                yPos += fromAddressHeight + 8;
 
-// Store this Y position, as both left and right columns start here.
-const detailsStartY = yPos;
+                doc.setDrawColor(220).setLineWidth(0.2).line(margin, yPos, pageWidth - margin, yPos);
+                yPos += 8;
+                
+                const detailsStartY = yPos;
+                const labelX = rightAlignX - 30;
 
-// LEFT: Bill To Address
-doc.setFontSize(8).setFont('helvetica', 'bold').setTextColor(150).text('BILL TO', margin, detailsStartY);
-doc.setFontSize(9).setFont('helvetica', 'normal').setTextColor(darkGray).text(Array.isArray(data.toAddress) ? data.toAddress.join('\n') : data.toAddress, margin, detailsStartY + lineHeight);
-const toAddressHeight = doc.getTextDimensions(Array.isArray(data.toAddress) ? data.toAddress.join('\n') : data.toAddress).h;
+                doc.setFontSize(8).setFont('helvetica', 'bold').setTextColor(150).text('BILL TO', margin, detailsStartY);
+                doc.setFontSize(9).setFont('helvetica', 'normal').setTextColor(darkGray).text(Array.isArray(data.toAddress) ? data.toAddress.join('\n') : data.toAddress, margin, detailsStartY + lineHeight);
+                const toAddressHeight = doc.getTextDimensions(Array.isArray(data.toAddress) ? data.toAddress.join('\n') : data.toAddress).h;
 
-// RIGHT: Invoice Details
-const rightAlignX = pageWidth - margin;
-const labelX = rightAlignX - 30;
-doc.setFontSize(9).setFont('helvetica', 'bold').setTextColor(150);
-doc.text('Invoice :', labelX, detailsStartY, { align: 'left' });
-doc.text('Date:', labelX, detailsStartY + lineHeight * 2, { align: 'left' });
+                doc.setFontSize(9).setFont('helvetica', 'bold').setTextColor(150);
+                doc.text('Invoice:', labelX, detailsStartY, { align: 'left' });
+                doc.text('Date:', labelX, detailsStartY + lineHeight * 2, { align: 'left' });
 
-doc.setFontSize(10).setFont('helvetica', 'normal').setTextColor(darkGray);
-doc.text(data.invoiceNo, rightAlignX, detailsStartY, { align: 'right' });
-doc.text(data.invoiceDate, rightAlignX, detailsStartY + lineHeight * 2, { align: 'right' });
-const detailsHeight = lineHeight * 2 + 5; // Approximate height of the right block.
+                doc.setFontSize(10).setFont('helvetica', 'normal').setTextColor(darkGray);
+                doc.text(data.invoiceNo, rightAlignX, detailsStartY, { align: 'right' });
+                doc.text(data.invoiceDate, rightAlignX, detailsStartY + lineHeight * 2, { align: 'right' });
+                const detailsHeight = lineHeight * 2 + 5;
 
-// Determine start of table based on the taller of the two columns below the line
-const tableStartY = detailsStartY + Math.max(toAddressHeight, detailsHeight) + 15;
+                const tableStartY = detailsStartY + Math.max(toAddressHeight, detailsHeight) + 15;
                 
                 const tableColumn = ["Sl.", "Code", "Item Description", "Qty", "Rate", "Total"];
-const tableRows = data.items.map((item, index) => {
-    const cost = parseFloat(item.Cost) || 0;
-    const indents = parseFloat(item.Indents) || 0;
-    const total = indents * cost;
-    return [index + 1, item.ITEM_CODE, item.PRODUCT_NAME, indents, cost.toFixed(2), total.toFixed(2)]
-});
+                const tableRows = data.items.map((item, index) => {
+                    const cost = parseFloat(item.Cost) || 0;
+                    const indents = parseFloat(item.Indents) || 0;
+                    const total = indents * cost;
+                    return [index + 1, item.ITEM_CODE, item.PRODUCT_NAME, indents, cost.toFixed(2), total.toFixed(2)];
+                });
 
-doc.autoTable({
-    head: [tableColumn], body: tableRows, startY: tableStartY,
-    theme: 'grid',
-    headStyles: { fillColor: darkGray, textColor: 255, fontStyle: 'bold', fontSize: 8 },
-    styles: { fontSize: 8, cellPadding: 1.5 },
-    alternateRowStyles: { fillColor: lightGray },
-    columnStyles: {
-        0: { halign: 'center', cellWidth: 8 },   // Sl.
-        1: { cellWidth: 20 },                    // Code
-        2: { cellWidth: 'auto' },                // Item Description
-        3: { halign: 'right', cellWidth: 15 },   // Qty
-        4: { halign: 'right', cellWidth: 25 },   // Rate
-        5: { halign: 'right', cellWidth: 25 }    // Total
-    }
-});
+                doc.autoTable({
+                    head: [tableColumn], body: tableRows, startY: tableStartY, theme: 'grid',
+                    headStyles: { fillColor: darkGray, textColor: 255, fontStyle: 'bold', fontSize: 8 },
+                    styles: { fontSize: 8, cellPadding: 1.5 }, alternateRowStyles: { fillColor: lightGray },
+                    columnStyles: {
+                        0: { halign: 'center', cellWidth: 8 }, 1: { cellWidth: 20 },
+                        2: { cellWidth: 'auto' }, 3: { halign: 'right', cellWidth: 15 },
+                        4: { halign: 'right', cellWidth: 25 }, 5: { halign: 'right', cellWidth: 25 }
+                    }
+                });
 
                 let finalY = doc.autoTable.previous.finalY;
                  if (finalY > pageHeight - 40) { doc.addPage(); finalY = margin; }
@@ -568,11 +488,16 @@ doc.autoTable({
                 
                 doc.save(`Invoice_${data.invoiceNo || 'bill'}.pdf`);
             }
-            
-            function readFile(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = event => resolve(event.target.result); reader.onerror = error => reject(error); reader.readAsText(file); }); }
-            
+
+            function readFile(file, format = 'text') { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = event => resolve(event.target.result); reader.onerror = error => reject(error); if (format === 'dataURL') { reader.readAsDataURL(file); } else { reader.readAsText(file); } }); }
             function parseCSV(data) { const rows = data.replace(/\r/g, "").split('\n').filter(row => row.trim() !== ''); if (rows.length < 1) return []; const headerLine = rows.shift(); const headers = headerLine.split(',').map(h => h.trim().replace(/"/g, '')); return rows.map(row => { const values = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); return headers.reduce((obj, header, i) => { const value = values[i] ? values[i].trim() : ''; obj[header] = value.startsWith('"') && value.endsWith('"') ? value.slice(1, -1) : value; return obj; }, {}); }); }
             
+            // --- Collapsed Functions (Unchanged from previous versions) ---
+            function showHistoryModal(){historyModalTitle.textContent='Invoice History';historyBackBtn.style.display='none';historyCloseBtn.style.display='inline-block';const t=JSON.parse(localStorage.getItem('invoiceHistory'))||{};const e=Object.keys(t).sort((t,e)=>t.localeCompare(e,void 0,{numeric:!0})).reverse();historyListContainer.innerHTML='';if(e.length===0){historyListContainer.innerHTML='<p>No saved invoices found.</p>';return}
+            e.forEach(e=>{const n=t[e];const o=document.createElement('div');o.className='history-item';o.innerHTML=`<div class="history-item-info"><span class="label">Invoice #</span><span>${n.invoiceNo}</span></div><div class="history-item-info"><span class="label">Date</span><span>${n.invoiceDate}</span></div><div class="history-actions"><button class="history-view-btn" data-invoice-no="${n.invoiceNo}" title="View"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button><button class="history-download-btn" data-invoice-no="${n.invoiceNo}" title="Download"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></button><button class="history-delete-btn" data-invoice-no="${n.invoiceNo}" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button></div>`;historyListContainer.appendChild(o)});historyModal.classList.add('visible')}
+            function handleHistoryAction(t){const e=t.target.closest("button");if(!e)return;const n=e.dataset.invoiceNo;if(e.classList.contains("history-download-btn")){const t=JSON.parse(localStorage.getItem("invoiceHistory"));t[n]&&generateProfessionalInvoicePDF(t[n])}else if(e.classList.contains("history-delete-btn")){if(confirm(`Are you sure you want to delete Invoice #${n}?`)){const t=JSON.parse(localStorage.getItem("invoiceHistory"));delete t[n],localStorage.setItem("invoiceHistory",JSON.stringify(t)),showHistoryModal()}}else if(e.classList.contains("history-view-btn")){const t=JSON.parse(localStorage.getItem("invoiceHistory"));t[n]&&showHistoryDetailView(t[n])}}
+            function showHistoryDetailView(t){historyModalTitle.textContent=`Details for Invoice #${t.invoiceNo}`;historyCloseBtn.style.display='none';historyBackBtn.style.display='inline-block';historyListContainer.innerHTML=`<div class="history-detail-view"><p style="color: var(--text-secondary); margin-bottom: 1rem;">Date: ${t.invoiceDate}</p><table><thead><tr><th>Sl.</th><th>Code</th><th>Item</th><th>Qty</th><th>Rate</th></tr></thead><tbody>${t.items.map((t,e)=>`<tr><td>${e+1}</td><td>${t.ITEM_CODE}</td><td>${t.PRODUCT_NAME}</td><td>${t.Indents}</td><td>${t.Cost}</td></tr>`).join("")}</tbody></table><h4 style="margin-top: 1rem; text-align: right;">Grand Total: Rs. ${t.grandTotal.toFixed(2)}</h4></div>`}
+            function saveInvoiceToHistory(t){if(!t.invoiceNo||t.invoiceNo==="N/A"){alert("Cannot save to history without an Invoice Number.");return}const e=JSON.parse(localStorage.getItem("invoiceHistory"))||{};e[t.invoiceNo]=t,localStorage.setItem("invoiceHistory",JSON.stringify(e))}
             function generatePackingSlipPDF(items){if(!masterListData){alert('Cannot generate packing slip without a Master List.');return}const masterItems=parseCSV(masterListData);const masterListMap=new Map();masterItems.forEach(item=>{if(item.ITEM_CODE)masterListMap.set(item.ITEM_CODE,{malayalamName:item['malayalam name'],storageCode:item['Storage code']})});const mergedData=items.map(item=>{const masterInfo=masterListMap.get(item.ITEM_CODE);return masterInfo?{...item,...masterInfo}:null}).filter(Boolean);const{jsPDF}=window.jspdf;const doc=new jsPDF();const today=(new Date).toLocaleDateString('en-GB');const groupedData=mergedData.reduce((acc,item)=>{const key=item.storageCode||'Uncategorized';if(!acc[key])acc[key]=[];acc[key].push(item);return acc},{});for(const key in groupedData)groupedData[key].sort((a,b)=>a.PRODUCT_NAME.localeCompare(b.PRODUCT_NAME));const storageNames={'A':'Ambient Items','C':'Chiller Items','T':'Tray Items','Uncategorized':'Uncategorized Items'};let slNoCounter=1;const addPageHeader=()=>{doc.setFontSize(20).setFont('helvetica','bold').text('Packing Slip',doc.internal.pageSize.getWidth()/2,22,{align:'center'});doc.setFontSize(11).setFont('helvetica','normal').setTextColor(100).text(`Date: ${today}`,14,29)};addPageHeader();let startY=40;const page1Categories=['A','C'];for(const code of page1Categories){if(groupedData[code]){const items=groupedData[code];const groupName=`${storageNames[code]} (${code})`;doc.setFontSize(14).setFont('helvetica','bold').text(groupName,14,startY);startY+=8;const tableColumn=["Sl.","Code","English Name","Malayalam Name","Weight","Qty",""];const tableRows=items.map(item=>[slNoCounter++,item.ITEM_CODE,item.PRODUCT_NAME,item.malayalamName,item.WEIGHT,item.Indents,'']);doc.autoTable({head:[tableColumn],body:tableRows,startY:startY,theme:'grid',headStyles:{fillColor:[44,62,80]},styles:{cellPadding:1.5,fontSize:9,textColor:[0,0,0]},alternateRowStyles:{fillColor:[245,245,245]},columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:15},2:{cellWidth:55},3:{cellWidth:40},4:{cellWidth:20},5:{cellWidth:10,halign:'center'},6:{cellWidth:15}}});startY=doc.autoTable.previous.finalY+10}}if(groupedData['T']){doc.addPage();startY=20;const items=groupedData['T'];const groupName=`${storageNames['T']} (T)`;doc.setFontSize(14).setFont('helvetica','bold').text(groupName,14,startY);startY+=8;const tableColumn=["Sl.","Code","English Name","Malayalam Name","Weight","Qty",""];const tableRows=items.map(item=>[slNoCounter++,item.ITEM_CODE,item.PRODUCT_NAME,item.malayalamName,item.WEIGHT,item.Indents,'']);doc.autoTable({head:[tableColumn],body:tableRows,startY:startY,theme:'grid',headStyles:{fillColor:[44,62,80]},styles:{cellPadding:1,fontSize:8,textColor:[0,0,0]},alternateRowStyles:{fillColor:[245,245,245]},columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:15},2:{cellWidth:55},3:{cellWidth:40},4:{cellWidth:20},5:{cellWidth:10,halign:'center'},6:{cellWidth:15}}})}doc.save(`Packing_Slip_${today.replace(/\//g,'-')}.pdf`)}
         });
     </script>
