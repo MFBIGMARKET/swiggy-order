@@ -434,18 +434,19 @@
                     <div class="history-detail-view">
                         <p style="color: var(--text-secondary); margin-bottom: 1rem;">Date: ${invoiceData.invoiceDate}</p>
                         <table>
-                            <thead><tr><th>Sl.</th><th>Item</th><th>Qty</th><th>Rate</th></tr></thead>
-                            <tbody>
-                                ${invoiceData.items.map((item, index) => `
-                                    <tr>
-                                        <td>${index + 1}</td>
-                                        <td>${item.PRODUCT_NAME}</td>
-                                        <td>${item.Indents}</td>
-                                        <td>${item.Cost}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
+    <thead><tr><th>Sl.</th><th>Code</th><th>Item</th><th>Qty</th><th>Rate</th></tr></thead>
+    <tbody>
+        ${invoiceData.items.map((item, index) => `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${item.ITEM_CODE}</td>
+                <td>${item.PRODUCT_NAME}</td>
+                <td>${item.Indents}</td>
+                <td>${item.Cost}</td>
+            </tr>
+        `).join('')}
+    </tbody>
+</table>
                         <h4 style="margin-top: 1rem; text-align: right;">Grand Total: Rs. ${invoiceData.grandTotal.toFixed(2)}</h4>
                     </div>
                 `;
@@ -495,49 +496,66 @@
                 const pageWidth = doc.internal.pageSize.width;
                 const lightGray = '#F3F4F6';
                 const darkGray = '#1F2937';
-                let yPos = margin + 4;
+// --- FINAL CLEAN HEADER ---
+let yPos = margin + 8;
 
-                doc.setFontSize(16).setFont('helvetica', 'bold').setTextColor(darkGray).text('INVOICE', margin, yPos);
+// Main Title and From Address
+doc.setFontSize(16).setFont('helvetica', 'bold').setTextColor(darkGray).text('INVOICE', margin, yPos);
+yPos += 8;
+doc.setFontSize(9).setFont('helvetica', 'normal').setTextColor(darkGray).text(Array.isArray(data.fromAddress) ? data.fromAddress.join('\n') : data.fromAddress, margin, yPos);
+const fromAddressHeight = doc.getTextDimensions(Array.isArray(data.fromAddress) ? data.fromAddress.join('\n') : data.fromAddress).h;
+yPos += fromAddressHeight + 8;
+
+// Separator Line
+doc.setDrawColor(220).setLineWidth(0.2).line(margin, yPos, pageWidth - margin, yPos);
+yPos += 8;
+
+// Store this Y position, as both left and right columns start here.
+const detailsStartY = yPos;
+
+// LEFT: Bill To Address
+doc.setFontSize(8).setFont('helvetica', 'bold').setTextColor(150).text('BILL TO', margin, detailsStartY);
+doc.setFontSize(9).setFont('helvetica', 'normal').setTextColor(darkGray).text(Array.isArray(data.toAddress) ? data.toAddress.join('\n') : data.toAddress, margin, detailsStartY + lineHeight);
+const toAddressHeight = doc.getTextDimensions(Array.isArray(data.toAddress) ? data.toAddress.join('\n') : data.toAddress).h;
+
+// RIGHT: Invoice Details
+const rightAlignX = pageWidth - margin;
+const labelX = rightAlignX - 30;
+doc.setFontSize(9).setFont('helvetica', 'bold').setTextColor(150);
+doc.text('Invoice :', labelX, detailsStartY, { align: 'left' });
+doc.text('Date:', labelX, detailsStartY + lineHeight * 2, { align: 'left' });
+
+doc.setFontSize(10).setFont('helvetica', 'normal').setTextColor(darkGray);
+doc.text(data.invoiceNo, rightAlignX, detailsStartY, { align: 'right' });
+doc.text(data.invoiceDate, rightAlignX, detailsStartY + lineHeight * 2, { align: 'right' });
+const detailsHeight = lineHeight * 2 + 5; // Approximate height of the right block.
+
+// Determine start of table based on the taller of the two columns below the line
+const tableStartY = detailsStartY + Math.max(toAddressHeight, detailsHeight) + 15;
                 
-                const rightAlignX = pageWidth - margin;
-                doc.setFontSize(9).setFont('helvetica', 'bold').setTextColor(150);
-                doc.text('INVOICE #', rightAlignX - 35, yPos - 5);
-                doc.text('DATE', rightAlignX - 35, yPos + 2);
-                doc.setFontSize(10).setFont('helvetica', 'normal').setTextColor(darkGray);
-                doc.text(data.invoiceNo, rightAlignX, yPos - 5, { align: 'right' });
-                doc.text(data.invoiceDate, rightAlignX, yPos + 2, { align: 'right' });
-                yPos += 12;
+                const tableColumn = ["Sl.", "Code", "Item Description", "Qty", "Rate", "Total"];
+const tableRows = data.items.map((item, index) => {
+    const cost = parseFloat(item.Cost) || 0;
+    const indents = parseFloat(item.Indents) || 0;
+    const total = indents * cost;
+    return [index + 1, item.ITEM_CODE, item.PRODUCT_NAME, indents, cost.toFixed(2), total.toFixed(2)]
+});
 
-                doc.setFontSize(8).setFont('helvetica', 'bold').setTextColor(150).text('FROM', margin, yPos);
-                yPos += lineHeight;
-                doc.setFontSize(9).setFont('helvetica', 'normal').setTextColor(darkGray).text(Array.isArray(data.fromAddress) ? data.fromAddress.join('\n') : data.fromAddress, margin, yPos);
-                const fromAddressHeight = doc.getTextDimensions(Array.isArray(data.fromAddress) ? data.fromAddress.join('\n') : data.fromAddress).h;
-                yPos += fromAddressHeight + 6;
-
-                doc.setFontSize(8).setFont('helvetica', 'bold').setTextColor(150).text('TO', margin, yPos);
-                yPos += lineHeight;
-                doc.setFontSize(9).setFont('helvetica', 'normal').setTextColor(darkGray).text(Array.isArray(data.toAddress) ? data.toAddress.join('\n') : data.toAddress, margin, yPos);
-                const toAddressHeight = doc.getTextDimensions(Array.isArray(data.toAddress) ? data.toAddress.join('\n') : data.toAddress).h;
-                const tableStartY = yPos + toAddressHeight + 10;
-                
-                const tableColumn = ["Sl.", "Item Description", "Qty", "Rate", "Total"];
-                const tableRows = data.items.map((item, index) => {
-                    const cost = parseFloat(item.Cost) || 0;
-                    const indents = parseFloat(item.Indents) || 0;
-                    const total = indents * cost;
-                    return [index + 1, item.PRODUCT_NAME, indents, cost.toFixed(2), total.toFixed(2)]
-                });
-
-                doc.autoTable({
-                    head: [tableColumn], body: tableRows, startY: tableStartY, theme: 'grid',
-                    headStyles: { fillColor: darkGray, textColor: 255, fontStyle: 'bold', fontSize: 8 },
-                    styles: { fontSize: 8, cellPadding: 1.5 }, alternateRowStyles: { fillColor: lightGray },
-                    columnStyles: {
-                        0: { halign: 'center', cellWidth: 10 }, 1: { cellWidth: 'auto' },
-                        2: { halign: 'right', cellWidth: 15 }, 3: { halign: 'right', cellWidth: 25 },
-                        4: { halign: 'right', cellWidth: 25 }
-                    }
-                });
+doc.autoTable({
+    head: [tableColumn], body: tableRows, startY: tableStartY,
+    theme: 'grid',
+    headStyles: { fillColor: darkGray, textColor: 255, fontStyle: 'bold', fontSize: 8 },
+    styles: { fontSize: 8, cellPadding: 1.5 },
+    alternateRowStyles: { fillColor: lightGray },
+    columnStyles: {
+        0: { halign: 'center', cellWidth: 8 },   // Sl.
+        1: { cellWidth: 20 },                    // Code
+        2: { cellWidth: 'auto' },                // Item Description
+        3: { halign: 'right', cellWidth: 15 },   // Qty
+        4: { halign: 'right', cellWidth: 25 },   // Rate
+        5: { halign: 'right', cellWidth: 25 }    // Total
+    }
+});
 
                 let finalY = doc.autoTable.previous.finalY;
                  if (finalY > pageHeight - 40) { doc.addPage(); finalY = margin; }
